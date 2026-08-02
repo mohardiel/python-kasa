@@ -126,6 +126,7 @@ from kasa.exceptions import (
     UnsupportedDeviceError,
 )
 from kasa.iot.iotdevice import IotDevice, _extract_sys_info
+from kasa.iot.iotstrip import IotStrip
 from kasa.json import DataClassJSONMixin
 from kasa.json import dumps as json_dumps
 from kasa.json import loads as json_loads
@@ -899,9 +900,29 @@ class Discover:
                 host=config.host,
             ) from ex
 
-        if (
-            device_class := get_device_class_from_family(type_, https=conn_params.https)
-        ) is None:
+        model = discovery_result.device_model.partition("(")[0]
+
+        iot_strip_models = {
+            "HS107",
+            "HS300",
+            "KP200",
+            "KP303",
+            "KP400",
+        }
+
+        if type_ == "IOT.SMARTPLUGSWITCH" and model in iot_strip_models:
+            device_class = IotStrip
+            _LOGGER.debug(
+                "Using IotStrip for discovered model %s",
+                discovery_result.device_model,
+            )
+        else:
+            device_class = get_device_class_from_family(
+                type_,
+                https=conn_params.https,
+            )
+
+        if device_class is None:
             _LOGGER.debug("Got unsupported device type: %s", type_)
             raise UnsupportedDeviceError(
                 f"Unsupported device {config.host} of type {type_}: {info}",
