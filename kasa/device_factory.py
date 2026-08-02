@@ -105,7 +105,8 @@ async def _connect(config: DeviceConfig, protocol: BaseProtocol) -> Device:
     device: Device | None = None
 
     if isinstance(protocol, IotProtocol) and isinstance(
-        protocol._transport, XorTransport
+        protocol._transport,
+        (XorTransport, KlapTransport, KlapTransportV2),
     ):
         info = await protocol.query(GET_SYSINFO_QUERY)
         _perf_log(True, "get_sysinfo")
@@ -215,7 +216,13 @@ def get_protocol(config: DeviceConfig, *, strict: bool = False) -> BaseProtocol 
         and ctype.encryption_type is DeviceEncryptionType.Aes
     ):
         return SmartProtocol(transport=SslTransport(config=config))
-
+    if (
+    ctype.device_family.value.startswith("IOT.")
+    and ctype.encryption_type is DeviceEncryptionType.Klap
+    and ctype.login_version is not None
+    and ctype.login_version >= 2
+    ):
+       return IotProtocol(transport=KlapTransportV2(config=config))
     protocol_transport_key = (
         protocol_name
         + "."
